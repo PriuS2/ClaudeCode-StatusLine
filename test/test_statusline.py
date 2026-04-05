@@ -48,3 +48,27 @@ def test_run_with_mock_input():
     lines = result.stdout.strip().split('\n')
     assert len(lines) == 3, f"Expected 3 lines, got {len(lines)}"
     assert 'Opus' in lines[0]
+
+def test_build_progress_bar_zero():
+    """build_progress_bar handles 0% correctly"""
+    import statusline
+    bar = statusline.build_progress_bar(0)
+    assert bar == "░░░░░░░░░░"
+
+def test_build_progress_bar_full():
+    """build_progress_bar handles 100% correctly"""
+    import statusline
+    bar = statusline.build_progress_bar(100)
+    assert bar == "██████████"
+
+def test_format_rate_limits_empty():
+    """format_rate_limits_line returns empty string when rate_limits is None"""
+    import statusline
+    result = statusline.format_rate_limits_line({})
+    assert result == ""
+
+def test_format_rate_limits_absent():
+    """format_rate_limits_line returns empty string when rate_limits is absent"""
+    import statusline
+    result = statusline.format_rate_limits_line({})
+    assert result == ""

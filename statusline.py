@@ -4,9 +4,10 @@ Displays: directory, branch, model, context usage, cost, rate limits
 """
 
 import json
-import sys
 import os
 import subprocess
+import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -15,7 +16,7 @@ if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-CACHE_FILE = "/tmp/statusline-git-cache"
+CACHE_FILE = os.path.join(tempfile.gettempdir(), "statusline-git-cache")
 CACHE_MAX_AGE = 5  # seconds
 
 EMOJI = {
