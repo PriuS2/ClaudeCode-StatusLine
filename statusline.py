@@ -19,6 +19,9 @@ if sys.platform == "win32":
 CACHE_FILE = os.path.join(tempfile.gettempdir(), "statusline-git-cache")
 CACHE_MAX_AGE = 5  # seconds
 
+SPEED_CACHE_FILE = os.path.join(tempfile.gettempdir(), "statusline-speed-cache")
+SPEED_CACHE_TTL = 30  # seconds
+
 EMOJI = {
     "directory": "📁",
     "branch": "🌿",
@@ -68,6 +71,96 @@ def get_cached_git_info():
         pass
 
     return branch, staged, modified
+
+def get_cached_speed_info():
+    """Get cached speed data from previous invocation.
+
+    Returns:
+        tuple: (previous_total_output_tokens, previous_timestamp_ms,
+                previous_current_usage_output_tokens) or None if cache miss/stale
+    """
+    cache_path = Path(SPEED_CACHE_FILE)
+
+    if not cache_path.exists():
+        return None
+
+    age = time.time() - cache_path.stat().st_mtime
+    if age >= SPEED_CACHE_TTL:
+        return None
+
+    content = cache_path.read_text().strip()
+    if not content:
+        return None
+
+    parts = content.split("|")
+    if len(parts) != 3:
+        return None
+
+    try:
+        prev_total = int(parts[0])
+        prev_ts = int(parts[1])
+        prev_current = int(parts[2])
+        return (prev_total, prev_ts, prev_current)
+    except ValueError:
+        return None
+
+def save_speed_cache(total_output_tokens, current_usage_output_tokens):
+    """Save speed data to cache for next invocation."""
+    cache_path = Path(SPEED_CACHE_FILE)
+    try:
+        timestamp_ms = int(time.time() * 1000)
+        cache_path.write_text(f"{total_output_tokens}|{timestamp_ms}|{current_usage_output_tokens}")
+    except Exception:
+        pass
+
+def calculate_speed(data):
+    """Calculate current and average token generation speed.
+
+    Returns:
+        tuple: (current_speed_tps, average_speed_tps)
+            Both values are floats, or None if cannot be calculated
+    """
+    current_total = data.get("context_window", {}).get("total_output_tokens", 0) or 0
+    current_usage = data.get("context_window", {}).get("current_usage", {}).get("output_tokens", 0) or 0
+    api_duration_ms = data.get("cost", {}).get("total_api_duration_ms", 0) or 0
+
+    # Average speed: total_output_tokens / (api_duration_ms / 1000)
+    avg_speed = None
+    if api_duration_ms > 0:
+        avg_speed = current_total / (api_duration_ms / 1000)
+
+    # Current speed: (delta_total / delta_time)
+    cached = get_cached_speed_info()
+    current_speed = None
+
+    if cached is not None and current_total > 0:
+        prev_total, prev_ts, prev_current = cached
+        delta_tokens = current_total - prev_total
+        if prev_ts > 0:
+            delta_ms = time.time() * 1000 - prev_ts
+            if delta_ms > 0 and delta_tokens >= 0:
+                current_speed = delta_tokens / (delta_ms / 1000)
+
+    # Always save current state for next calculation
+    if current_total > 0:
+        save_speed_cache(current_total, current_usage)
+
+    return current_speed, avg_speed
+
+def format_speed_suffix(data):
+    """Format speed suffix for context line.
+
+    Returns:
+        str: " ⚡{speed}t/s Avg:{avg}t/s" or " ⚡--t/s Avg:--t/s" if unavailable
+    """
+    current_speed, avg_speed = calculate_speed(data)
+
+    def fmt_speed(speed):
+        if speed is None:
+            return "--"
+        return f"{speed:.0f}"
+
+    return f" ⚡{fmt_speed(current_speed)}t/s Avg:{fmt_speed(avg_speed)}t/s"
 
 def build_progress_bar(percentage, width=10):
     """Build a text progress bar"""
