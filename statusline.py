@@ -179,12 +179,12 @@ def format_minimax_usage_line():
             data = json.loads(response.read().decode())
             for model in data.get("model_remains", []):
                 if model.get("model_name", "").startswith("MiniMax-M"):
-                    five_used = model.get("current_interval_usage_count", 0)
-                    five_total = model.get("current_interval_total_count", 1)
-                    seven_used = model.get("current_weekly_usage_count", 0)
-                    seven_total = model.get("current_weekly_total_count", 1)
-                    five_end = model.get("end_time", 0)
-                    seven_end = model.get("weekly_end_time", 0)
+                    five_used = int(model.get("current_interval_usage_count", 0) or 0)
+                    five_total = int(model.get("current_interval_total_count", 1) or 1)
+                    seven_used = int(model.get("current_weekly_usage_count", 0) or 0)
+                    seven_total = int(model.get("current_weekly_total_count", 1) or 1)
+                    five_end = int(model.get("end_time", 0) or 0)
+                    seven_end = int(model.get("weekly_end_time", 0) or 0)
 
                     five_remain = max(0, five_total - five_used)
                     seven_remain = max(0, seven_total - seven_used)
