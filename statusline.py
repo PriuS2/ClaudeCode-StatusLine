@@ -18,6 +18,8 @@ if sys.platform == "win32":
 
 CACHE_FILE = os.path.join(tempfile.gettempdir(), "statusline-git-cache")
 CACHE_MAX_AGE = 5  # seconds
+SPEED_CACHE_FILE = os.path.join(tempfile.gettempdir(), "statusline-speed-cache")
+SPEED_HISTORY_SIZE = 5
 
 EMOJI = {
     "directory": "📁",
@@ -68,6 +70,51 @@ def get_cached_git_info():
         pass
 
     return branch, staged, modified
+
+def get_speed_cache():
+    """Get speed cache data"""
+    cache_path = Path(SPEED_CACHE_FILE)
+    if cache_path.exists():
+        try:
+            content = cache_path.read_text().strip()
+            if content:
+                data = json.loads(content)
+                return data.get("last_output", 0), data.get("last_time", 0), data.get("speed_history", [])
+        except Exception:
+            pass
+    return 0, 0, []
+
+def save_speed_cache(last_output, speed_history):
+    """Save speed cache data"""
+    cache_path = Path(SPEED_CACHE_FILE)
+    try:
+        cache_path.write_text(json.dumps({
+            "last_output": last_output,
+            "last_time": time.time(),
+            "speed_history": speed_history[-SPEED_HISTORY_SIZE:]
+        }))
+    except Exception:
+        pass
+
+def calculate_speed(current_output):
+    """Calculate speed based on output token delta since last check"""
+    last_output, last_time, speed_history = get_speed_cache()
+    current_time = time.time()
+
+    if current_output > last_output and last_time > 0:
+        delta_output = current_output - last_output
+        delta_time = current_time - last_time
+        if delta_time > 0:
+            speed = delta_output / delta_time
+            speed_history = speed_history + [speed]
+            speed_history = speed_history[-SPEED_HISTORY_SIZE:]
+            avg_speed = sum(speed_history) / len(speed_history)
+            save_speed_cache(current_output, speed_history)
+            return avg_speed, speed_history
+    elif last_time == 0:
+        save_speed_cache(current_output, [])
+
+    return None, speed_history if speed_history else []
 
 def build_progress_bar(percentage, width=10):
     """Build a text progress bar"""
@@ -125,13 +172,12 @@ def format_context_line(data):
     current = input_tokens + output_tokens
     total = int(context.get("context_window_size", 1) or 1)
 
-    # Calculate tokens per second (output tokens per second)
-    duration_ms = data.get("cost", {}).get("total_duration_ms") or 0
-    if duration_ms > 0 and output_tokens > 0:
-        tokens_per_sec = output_tokens / (duration_ms / 1000)
-        speed_str = f"⚡{tokens_per_sec:.0f}t/s"
+    # Calculate speed based on output token delta (recent 5 average)
+    avg_speed, _ = calculate_speed(output_tokens)
+    if avg_speed is not None:
+        speed_str = f"⚡ {avg_speed:.0f}t/s"
     else:
-        speed_str = "⚡--t/s"
+        speed_str = "⚡ --t/s"
 
     # Format tokens with k suffix for thousands
     def format_k(n):
