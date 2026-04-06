@@ -24,7 +24,12 @@ if [ -f "${SETTINGS_FILE}" ]; then
 import json
 import sys
 import os
+import platform
+
 settings_path = os.path.expanduser('${SETTINGS_FILE}')
+# Fix for Windows Git Bash path issue
+if platform.system() == 'Windows' and settings_path.startswith('/c/'):
+    settings_path = settings_path[1].upper() + ':' + settings_path[2:]
 try:
     with open(settings_path, 'r') as f:
         settings = json.load(f)
