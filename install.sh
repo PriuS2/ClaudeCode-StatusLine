@@ -40,20 +40,6 @@ chmod +x "${INSTALL_DIR}/statusline.py"
 
 # Update settings.json
 SETTINGS_FILE="${HOME}/.claude/settings.json"
-PYTHON_CMD_ESCAPED=$(echo "${PYTHON_CMD}" | sed 's/\\/\\\\/g')
-INSTALL_DIR_ESCAPED=$(echo "${INSTALL_DIR}" | sed 's/\\/\\\\/g')
-
-# Convert Git Bash path to Windows path for Python
-SETTINGS_FILE_WIN="${SETTINGS_FILE}"
-if [[ "${SETTINGS_FILE}" == /c/* ]]; then
-    SETTINGS_FILE_WIN="C:${SETTINGS_FILE:3}"
-    SETTINGS_FILE_WIN="${SETTINGS_FILE_WIN//\//\\}"
-fi
-INSTALL_DIR_WIN="${INSTALL_DIR}"
-if [[ "${INSTALL_DIR}" == /c/* ]]; then
-    INSTALL_DIR_WIN="C:${INSTALL_DIR:3}"
-    INSTALL_DIR_WIN="${INSTALL_DIR_WIN//\//\\}"
-fi
 
 if [ -f "${SETTINGS_FILE}" ]; then
     # Check if statusLine already exists
@@ -61,15 +47,18 @@ if [ -f "${SETTINGS_FILE}" ]; then
         echo "statusLine already exists in settings.json. Skipping."
     else
         # Add statusLine to existing settings using Python for safe JSON manipulation
-        python3 -c "
+        python3 << 'PYEOF'
 import json
 import sys
 import os
 import platform
 import re
 
-settings_path = r'${SETTINGS_FILE_WIN}'
-# Fix for Windows Git Bash path issue
+# Get HOME from environment
+home = os.environ.get('HOME') or os.path.expanduser('~')
+
+# Convert Git Bash path to Windows path
+settings_path = os.path.join(home, '.claude', 'settings.json')
 if platform.system() == 'Windows' and settings_path.startswith('/c/'):
     settings_path = settings_path[1].upper() + ':' + settings_path[2:]
 
@@ -77,37 +66,64 @@ if platform.system() == 'Windows' and settings_path.startswith('/c/'):
 with open(settings_path, 'r', encoding='utf-8') as f:
     content = f.read()
 
-# Remove // comments
-content = re.sub(r'//.*$', '', content, flags=re.MULTILINE)
-# Remove /* */ block comments
-content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
-# Remove trailing commas before } or ]
-content = re.sub(r',(\s*[}\]])', r'\1', content)
+# Try parsing directly first (handles standard JSON)
+try:
+    settings = json.loads(content)
+except json.JSONDecodeError:
+    # If direct parse fails, try removing comments
+    # Use a state machine approach to remove // comments outside strings
+    result = []
+    i = 0
+    in_string = False
+    while i < len(content):
+        c = content[i]
+        if c == '"' and (i == 0 or content[i-1] != '\\'):
+            in_string = not in_string
+            result.append(c)
+        elif not in_string and c == '/' and i + 1 < len(content) and content[i+1] == '/':
+            # Skip until end of line
+            while i < len(content) and content[i] != '\n':
+                i += 1
+            continue
+        elif not in_string and c == '/' and i + 1 < len(content) and content[i+1] == '*':
+            # Skip block comment
+            i += 2
+            while i < len(content) - 1 and not (content[i] == '*' and content[i+1] == '/'):
+                i += 1
+            i += 2
+            continue
+        else:
+            result.append(c)
+        i += 1
+    content = ''.join(result)
+    # Remove trailing commas
+    content = re.sub(r',(\s*[}\]])', r'\1', content)
+    settings = json.loads(content)
 
-settings = json.loads(content)
-settings['statusLine'] = {'type': 'command', 'command': '${PYTHON_CMD} ${INSTALL_DIR}/statusline.py'}
+settings['statusLine'] = {'type': 'command', 'command': 'python3 ~/.claude/plugins/claude-status-bar/statusline.py'}
 with open(settings_path, 'w', encoding='utf-8') as f:
     json.dump(settings, f, indent=2)
 print('Updated settings.json')
-"
+PYEOF
     fi
 else
     # Create new settings file
     mkdir -p "$(dirname "${SETTINGS_FILE}")"
-    python3 -c "
+    python3 << 'PYEOF'
 import json
 import os
 import platform
 
-settings = {'statusLine': {'type': 'command', 'command': '${PYTHON_CMD} ${INSTALL_DIR}/statusline.py'}}
-settings_path = r'${SETTINGS_FILE_WIN}'
-# Fix for Windows Git Bash path issue
+home = os.environ.get('HOME') or os.path.expanduser('~')
+settings_path = os.path.join(home, '.claude', 'settings.json')
 if platform.system() == 'Windows' and settings_path.startswith('/c/'):
     settings_path = settings_path[1].upper() + ':' + settings_path[2:]
+
+settings = {'statusLine': {'type': 'command', 'command': 'python3 ~/.claude/plugins/claude-status-bar/statusline.py'}}
 os.makedirs(os.path.dirname(settings_path), exist_ok=True)
 with open(settings_path, 'w') as f:
     json.dump(settings, f, indent=2)
-"
+PYEOF
     echo "Created ${SETTINGS_FILE}"
 fi
 
