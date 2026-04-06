@@ -72,3 +72,123 @@ def test_format_rate_limits_absent():
     import statusline
     result = statusline.format_rate_limits_line({})
     assert result == ""
+
+def test_format_speed_suffix_no_cache():
+    """format_speed_suffix returns --t/s when no cache exists"""
+    import statusline
+    import tempfile
+    import os
+
+    # Clear any existing cache
+    cache_path = os.path.join(tempfile.gettempdir(), "statusline-speed-cache")
+    if os.path.exists(cache_path):
+        os.remove(cache_path)
+
+    data = {
+        "context_window": {
+            "total_output_tokens": 1000,
+            "current_usage": {"output_tokens": 100}
+        },
+        "cost": {"total_api_duration_ms": 0}
+    }
+    result = statusline.format_speed_suffix(data)
+    assert "⚡--" in result and "Avg:--" in result
+
+
+def test_format_speed_suffix_with_calculation():
+    """format_speed_suffix calculates speed from data"""
+    import statusline
+    import tempfile
+    import os
+    import time
+
+    # Pre-populate cache with old data
+    cache_path = os.path.join(tempfile.gettempdir(), "statusline-speed-cache")
+    old_timestamp = int(time.time() * 1000) - 5000  # 5 seconds ago
+    with open(cache_path, 'w') as f:
+        f.write(f"500|{old_timestamp}|50")
+
+    data = {
+        "context_window": {
+            "total_output_tokens": 1000,
+            "current_usage": {"output_tokens": 100}
+        },
+        "cost": {"total_api_duration_ms": 100000}  # 100 seconds
+    }
+    result = statusline.format_speed_suffix(data)
+    # 500 tokens / 100 seconds = 5 t/s average
+    # Delta = 500 tokens over 5 seconds = 100 t/s current
+    assert "Avg:5t/s" in result
+    assert "⚡" in result
+
+
+def test_calculate_speed_divide_by_zero():
+    """calculate_speed handles zero api_duration_ms"""
+    import statusline
+    import tempfile
+    import os
+
+    # Clear cache
+    cache_path = os.path.join(tempfile.gettempdir(), "statusline-speed-cache")
+    if os.path.exists(cache_path):
+        os.remove(cache_path)
+
+    data = {
+        "context_window": {
+            "total_output_tokens": 1000,
+            "current_usage": {"output_tokens": 100}
+        },
+        "cost": {"total_api_duration_ms": 0}
+    }
+    current_speed, avg_speed = statusline.calculate_speed(data)
+    assert avg_speed is None  # Cannot calculate with 0 duration
+
+
+def test_calculate_speed_cache_stale():
+    """calculate_speed returns None current_speed when cache is stale"""
+    import statusline
+    import tempfile
+    import os
+    import time
+
+    # Pre-populate cache with very old data (beyond 30s TTL)
+    cache_path = os.path.join(tempfile.gettempdir(), "statusline-speed-cache")
+    old_timestamp = int(time.time() * 1000) - 35000  # 35 seconds ago
+    with open(cache_path, 'w') as f:
+        f.write(f"500|{old_timestamp}|50")
+
+    data = {
+        "context_window": {
+            "total_output_tokens": 1000,
+            "current_usage": {"output_tokens": 100}
+        },
+        "cost": {"total_api_duration_ms": 100000}
+    }
+    current_speed, avg_speed = statusline.calculate_speed(data)
+    assert current_speed is None  # Cache stale, cannot calculate current speed
+    assert avg_speed is not None  # Average still calculable
+
+
+def test_format_context_line_with_speed():
+    """format_context_line includes speed suffix"""
+    import statusline
+    import tempfile
+    import os
+
+    # Clear cache
+    cache_path = os.path.join(tempfile.gettempdir(), "statusline-speed-cache")
+    if os.path.exists(cache_path):
+        os.remove(cache_path)
+
+    data = {
+        "context_window": {
+            "used_percentage": 35,
+            "context_window_size": 200000,
+            "current_usage": {"input_tokens": 45000, "output_tokens": 3000},
+            "total_output_tokens": 3000
+        },
+        "cost": {"total_api_duration_ms": 250000}  # 250 seconds
+    }
+    result = statusline.format_context_line(data)
+    assert "⚡--" in result  # No previous cache, current speed unknown
+    assert "Avg:12t/s" in result  # 3000 tokens / 250 seconds = 12 t/s
