@@ -209,7 +209,7 @@ def format_workspace_line(data):
     return line
 
 def format_context_line(data):
-    """Line 2: 🧊 {percentage}% ({current}/{total}) [{bar}] In:Xk Out:Xk"""
+    """Line 2: 🧊 {percentage}% ({current}/{total}) [{bar}] In:Xk Out:Xk ⚡{speed}t/s Avg:{avg}t/s"""
     context = data.get("context_window", {})
     percentage = context.get("used_percentage") or 0
     current_usage = context.get("current_usage", {})
@@ -225,8 +225,9 @@ def format_context_line(data):
         return str(n)
 
     bar = build_progress_bar(percentage)
+    speed_suffix = format_speed_suffix(data)
 
-    return f"{EMOJI['context']} {percentage}% ({current:,}/{total:,}) [{bar}] In:{format_k(input_tokens)} Out:{format_k(output_tokens)}"
+    return f"{EMOJI['context']} {percentage}% ({current:,}/{total:,}) [{bar}] In:{format_k(input_tokens)} Out:{format_k(output_tokens)}{speed_suffix}"
 
 def format_rate_limits_line(data):
     """Line 3: ⏳ 5h: {percentage}% [{bar}] 7d: {percentage}% [{bar}]"""
