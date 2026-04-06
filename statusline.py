@@ -79,41 +79,37 @@ def get_speed_cache():
             content = cache_path.read_text().strip()
             if content:
                 data = json.loads(content)
-                return data.get("last_output", 0), data.get("last_api_duration", 0), data.get("speed_history", [])
+                return data.get("last_output", 0), data.get("last_api_duration", 0)
         except Exception:
             pass
-    return 0, 0, []
+    return 0, 0
 
-def save_speed_cache(last_output, last_api_duration, speed_history):
+def save_speed_cache(last_output, last_api_duration):
     """Save speed cache data"""
     cache_path = Path(SPEED_CACHE_FILE)
     try:
         cache_path.write_text(json.dumps({
             "last_output": last_output,
-            "last_api_duration": last_api_duration,
-            "speed_history": speed_history[-SPEED_HISTORY_SIZE:]
+            "last_api_duration": last_api_duration
         }))
     except Exception:
         pass
 
 def calculate_speed(current_output, current_api_duration):
-    """Calculate speed based on output token delta / api duration delta, return 5-call average"""
-    last_output, last_api_duration, speed_history = get_speed_cache()
+    """Calculate speed based on output token delta / api duration delta, return current speed"""
+    last_output, last_api_duration = get_speed_cache()
 
     if current_output > last_output and current_api_duration > last_api_duration:
         delta_output = current_output - last_output
         delta_api_duration = current_api_duration - last_api_duration  # in ms
         if delta_api_duration >= 100:  # minimum 100ms to avoid division by very small numbers
             speed = delta_output / (delta_api_duration / 1000)  # tokens per second
-            speed_history = speed_history + [speed]
-            speed_history = speed_history[-SPEED_HISTORY_SIZE:]
-            avg_speed = sum(speed_history) / len(speed_history)
-            save_speed_cache(current_output, current_api_duration, speed_history)
-            return avg_speed
+            save_speed_cache(current_output, current_api_duration)
+            return speed
     elif last_api_duration == 0:
-        save_speed_cache(current_output, current_api_duration, [])
+        save_speed_cache(current_output, current_api_duration)
 
-    return None if not speed_history else sum(speed_history) / len(speed_history)
+    return None
 
 def build_progress_bar(percentage, width=10):
     """Build a text progress bar"""
