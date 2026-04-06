@@ -116,9 +116,12 @@ def format_workspace_line(data):
     return line
 
 def format_context_line(data):
-    """Line 2: 🧊 {percentage}% [{bar}] 💰 ${cost} (${cost_per_hour}/h)"""
+    """Line 2: 🧊 {percentage}% ({current}/{total}) [{bar}] 💰 ${cost} (${cost_per_hour}/h)"""
     context = data.get("context_window", {})
     percentage = context.get("used_percentage") or 0
+    current_usage = context.get("current_usage", {})
+    current = current_usage.get("input_tokens", 0) + current_usage.get("output_tokens", 0)
+    total = context.get("context_window_size", 1)
     cost = data.get("cost", {}).get("total_cost_usd") or 0
 
     bar = build_progress_bar(percentage)
@@ -130,7 +133,7 @@ def format_context_line(data):
     cost_per_hour = cost / hours if hours > 0 else 0
     cost_per_hour_str = f"${cost_per_hour:.2f}/h"
 
-    return f"{EMOJI['context']} {percentage}% [{bar}] {EMOJI['cost']} {cost_str} ({cost_per_hour_str})"
+    return f"{EMOJI['context']} {percentage}% ({current:,}/{total:,}) [{bar}] {EMOJI['cost']} {cost_str} ({cost_per_hour_str})"
 
 def format_rate_limits_line(data):
     """Line 3: ⏳ 5h: {percentage}% [{bar}] 7d: {percentage}% [{bar}]"""
