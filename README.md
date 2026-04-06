@@ -33,7 +33,7 @@ curl -fsSL https://raw.githubusercontent.com/PriuS2/ClaudeCode-StatusLine/main/i
 ## 업데이트
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/PriuS2/ClaudeCode-StatusLine/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/PriuS2/ClaudeCode-StatusLine/main/update.sh | bash
 ```
 
 ## 제거
