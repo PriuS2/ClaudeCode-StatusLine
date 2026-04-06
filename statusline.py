@@ -205,7 +205,12 @@ def format_minimax_usage_line():
                     seven_min = (seven_reset % 3600) // 60
 
                     five_reset_str = f"{five_hr}h{five_min}m" if five_hr > 0 else f"{five_min}m"
-                    seven_reset_str = f"{seven_hr}d" if seven_hr >= 24 else f"{seven_hr}h{seven_min}m"
+                    seven_days = seven_hr // 24
+                    seven_rem_hr = seven_hr % 24
+                    if seven_days > 0:
+                        seven_reset_str = f"{seven_days}d{seven_rem_hr}h" if seven_rem_hr > 0 else f"{seven_days}d"
+                    else:
+                        seven_reset_str = f"{seven_hr}h{seven_min}m" if seven_hr > 0 else f"{seven_min}m"
 
                     return f"🌐 5h: {five_remain:,}/{five_total:,} ({five_pct:.0f}%) [{five_bar}] 7d: {seven_remain:,}/{seven_total:,} ({seven_pct:.0f}%) [{seven_bar}] (R:{five_reset_str}/{seven_reset_str})"
             return ""
