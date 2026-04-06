@@ -79,37 +79,38 @@ def get_speed_cache():
             content = cache_path.read_text().strip()
             if content:
                 data = json.loads(content)
-                return data.get("last_output", 0), data.get("last_api_duration", 0)
+                return data.get("last_output", 0), data.get("last_api_duration", 0), data.get("last_speed", 0)
         except Exception:
             pass
-    return 0, 0
+    return 0, 0, 0
 
-def save_speed_cache(last_output, last_api_duration):
+def save_speed_cache(last_output, last_api_duration, last_speed):
     """Save speed cache data"""
     cache_path = Path(SPEED_CACHE_FILE)
     try:
         cache_path.write_text(json.dumps({
             "last_output": last_output,
-            "last_api_duration": last_api_duration
+            "last_api_duration": last_api_duration,
+            "last_speed": last_speed
         }))
     except Exception:
         pass
 
 def calculate_speed(current_output, current_api_duration):
     """Calculate speed based on output token delta / api duration delta, return current speed"""
-    last_output, last_api_duration = get_speed_cache()
+    last_output, last_api_duration, last_speed = get_speed_cache()
 
     if current_output > last_output and current_api_duration > last_api_duration:
         delta_output = current_output - last_output
         delta_api_duration = current_api_duration - last_api_duration  # in ms
         if delta_api_duration >= 100:  # minimum 100ms to avoid division by very small numbers
             speed = delta_output / (delta_api_duration / 1000)  # tokens per second
-            save_speed_cache(current_output, current_api_duration)
+            save_speed_cache(current_output, current_api_duration, speed)
             return speed
     elif last_api_duration == 0:
-        save_speed_cache(current_output, current_api_duration)
+        save_speed_cache(current_output, current_api_duration, last_speed)
 
-    return None
+    return last_speed if last_speed > 0 else None
 
 def build_progress_bar(percentage, width=10):
     """Build a text progress bar"""
