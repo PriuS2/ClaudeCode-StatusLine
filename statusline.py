@@ -133,12 +133,15 @@ def calculate_speed(data):
     cached = get_cached_speed_info()
     current_speed = None
 
+    MIN_DELTA_MS = 1000  # Minimum 1 second between updates to calculate current speed
+
     if cached is not None and current_total > 0:
         prev_total, prev_ts, prev_current = cached
         delta_tokens = current_total - prev_total
         if prev_ts > 0:
             delta_ms = time.time() * 1000 - prev_ts
-            if delta_ms > 0 and delta_tokens >= 0:
+            # Only calculate speed if tokens increased AND enough time passed
+            if delta_ms >= MIN_DELTA_MS and delta_tokens > 0:
                 current_speed = delta_tokens / (delta_ms / 1000)
 
     # Always save current state for next calculation
