@@ -18,8 +18,6 @@ if sys.platform == "win32":
 
 CACHE_FILE = os.path.join(tempfile.gettempdir(), "statusline-git-cache")
 CACHE_MAX_AGE = 5  # seconds
-SPEED_CACHE_FILE = os.path.join(tempfile.gettempdir(), "statusline-speed-cache")
-SPEED_HISTORY_SIZE = 5
 
 EMOJI = {
     "directory": "📁",
@@ -71,52 +69,6 @@ def get_cached_git_info():
 
     return branch, staged, modified
 
-def get_speed_cache():
-    """Get speed cache data"""
-    cache_path = Path(SPEED_CACHE_FILE)
-    if cache_path.exists():
-        try:
-            content = cache_path.read_text().strip()
-            if content:
-                data = json.loads(content)
-                return data.get("last_output", 0), data.get("last_api_duration", 0), data.get("last_speed", 0)
-        except Exception:
-            pass
-    return 0, 0, 0
-
-def save_speed_cache(last_output, last_api_duration, last_speed):
-    """Save speed cache data"""
-    cache_path = Path(SPEED_CACHE_FILE)
-    try:
-        cache_path.write_text(json.dumps({
-            "last_output": last_output,
-            "last_api_duration": last_api_duration,
-            "last_speed": last_speed
-        }))
-    except Exception:
-        pass
-
-def calculate_speed(current_output, current_api_duration):
-    """Calculate speed based on output token delta / api duration delta, return current speed"""
-    last_output, last_api_duration, last_speed = get_speed_cache()
-
-    # New session detected (api_duration reset) - clear cache
-    if current_api_duration < last_api_duration:
-        save_speed_cache(0, 0, 0)
-        last_output, last_api_duration, last_speed = 0, 0, 0
-
-    if current_output > last_output and current_api_duration > last_api_duration:
-        delta_output = current_output - last_output
-        delta_api_duration = current_api_duration - last_api_duration  # in ms
-        if delta_api_duration >= 100:  # minimum 100ms to avoid division by very small numbers
-            speed = delta_output / (delta_api_duration / 1000)  # tokens per second
-            save_speed_cache(current_output, current_api_duration, speed)
-            return speed
-    elif last_api_duration == 0:
-        save_speed_cache(current_output, current_api_duration, last_speed)
-
-    return last_speed if last_speed > 0 else None
-
 def build_progress_bar(percentage, width=10):
     """Build a text progress bar"""
     filled = int(percentage * width / 100)
@@ -164,7 +116,7 @@ def format_workspace_line(data):
     return line
 
 def format_context_line(data):
-    """Line 2: 🧊 {percentage}% ({current}/{total}) [{bar}] In:Xk Out:Xk ⚡Xt/s"""
+    """Line 2: 🧊 {percentage}% ({current}/{total}) [{bar}] In:Xk Out:Xk"""
     context = data.get("context_window", {})
     percentage = context.get("used_percentage") or 0
     current_usage = context.get("current_usage", {})
@@ -172,16 +124,6 @@ def format_context_line(data):
     output_tokens = int(current_usage.get("output_tokens", 0) or 0)
     current = input_tokens + output_tokens
     total = int(context.get("context_window_size", 1) or 1)
-
-    # Get API duration for speed calculation
-    total_api_duration_ms = int(data.get("cost", {}).get("total_api_duration_ms", 0) or 0)
-
-    # Calculate speed based on output token delta / api duration delta (recent 5 average)
-    current_speed = calculate_speed(output_tokens, total_api_duration_ms)
-    if current_speed is not None and current_speed > 0:
-        speed_str = f"⚡ {current_speed:.0f}t/s"
-    else:
-        speed_str = "⚡ --t/s"
 
     # Format tokens with k suffix for thousands
     def format_k(n):
@@ -191,7 +133,7 @@ def format_context_line(data):
 
     bar = build_progress_bar(percentage)
 
-    return f"{EMOJI['context']} {percentage}% ({current:,}/{total:,}) [{bar}] In:{format_k(input_tokens)} Out:{format_k(output_tokens)} {speed_str}"
+    return f"{EMOJI['context']} {percentage}% ({current:,}/{total:,}) [{bar}] In:{format_k(input_tokens)} Out:{format_k(output_tokens)}"
 
 def format_rate_limits_line(data):
     """Line 3: ⏳ 5h: {percentage}% [{bar}] 7d: {percentage}% [{bar}]"""
