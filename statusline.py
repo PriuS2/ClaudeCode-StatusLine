@@ -97,7 +97,7 @@ def save_speed_cache(last_output, speed_history):
         pass
 
 def calculate_speed(current_output):
-    """Calculate speed based on output token delta since last check"""
+    """Calculate speed based on output token delta since last check, return 5-call average"""
     last_output, last_time, speed_history = get_speed_cache()
     current_time = time.time()
 
@@ -110,11 +110,11 @@ def calculate_speed(current_output):
             speed_history = speed_history[-SPEED_HISTORY_SIZE:]
             avg_speed = sum(speed_history) / len(speed_history)
             save_speed_cache(current_output, speed_history)
-            return avg_speed, speed_history
+            return avg_speed
     elif last_time == 0:
         save_speed_cache(current_output, [])
 
-    return None, speed_history if speed_history else []
+    return None if not speed_history else sum(speed_history) / len(speed_history)
 
 def build_progress_bar(percentage, width=10):
     """Build a text progress bar"""
@@ -173,9 +173,9 @@ def format_context_line(data):
     total = int(context.get("context_window_size", 1) or 1)
 
     # Calculate speed based on output token delta (recent 5 average)
-    avg_speed, _ = calculate_speed(output_tokens)
-    if avg_speed is not None:
-        speed_str = f"⚡ {avg_speed:.0f}t/s"
+    current_speed = calculate_speed(output_tokens)
+    if current_speed is not None and current_speed > 0:
+        speed_str = f"⚡ {current_speed:.0f}t/s"
     else:
         speed_str = "⚡ --t/s"
 
