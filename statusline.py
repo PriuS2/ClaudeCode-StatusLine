@@ -120,8 +120,8 @@ def format_context_line(data):
     context = data.get("context_window", {})
     percentage = context.get("used_percentage") or 0
     current_usage = context.get("current_usage", {})
-    current = current_usage.get("input_tokens", 0) + current_usage.get("output_tokens", 0)
-    total = context.get("context_window_size", 1)
+    current = int(current_usage.get("input_tokens", 0) or 0) + int(current_usage.get("output_tokens", 0) or 0)
+    total = int(context.get("context_window_size", 1) or 1)
 
     bar = build_progress_bar(percentage)
 
@@ -207,7 +207,7 @@ def format_minimax_usage_line():
                     five_reset_str = f"{five_hr}h{five_min}m" if five_hr > 0 else f"{five_min}m"
                     seven_reset_str = f"{seven_hr}d" if seven_hr >= 24 else f"{seven_hr}h{seven_min}m"
 
-                    return f"🌐 5h: {five_remain}/{five_total} ({five_pct:.0f}%) [{five_bar}] 7d: {seven_remain}/{seven_total} ({seven_pct:.0f}%) [{seven_bar}] (R:{five_reset_str}/{seven_reset_str})"
+                    return f"🌐 5h: {five_remain:,}/{five_total:,} ({five_pct:.0f}%) [{five_bar}] 7d: {seven_remain:,}/{seven_total:,} ({seven_pct:.0f}%) [{seven_bar}] (R:{five_reset_str}/{seven_reset_str})"
             return ""
     except Exception:
         return ""
