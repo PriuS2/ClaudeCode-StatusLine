@@ -33,7 +33,7 @@ fi
 
 # Download statusline.py
 echo "Downloading statusline.py..."
-curl -fsSL "${DOWNLOAD_URL}" -o "${INSTALL_DIR}/statusline.py"
+curl -sSL --connect-timeout 30 --retry 3 --retry-delay 5 -L "${DOWNLOAD_URL}" -o "${INSTALL_DIR}/statusline.py"
 
 # Make executable
 chmod +x "${INSTALL_DIR}/statusline.py"

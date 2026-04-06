@@ -38,7 +38,7 @@ echo "Downloading latest version..."
 
 # Download new version
 DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_TAG}/statusline.py"
-curl -fsSL "${DOWNLOAD_URL}" -o "${STATUSLINE_FILE}"
+curl -sSL --connect-timeout 30 --retry 3 --retry-delay 5 -L "${DOWNLOAD_URL}" -o "${STATUSLINE_FILE}"
 chmod +x "${STATUSLINE_FILE}"
 
 echo ""
