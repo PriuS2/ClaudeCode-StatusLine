@@ -133,7 +133,10 @@ def format_context_line(data):
     cost_per_hour = cost / hours if hours > 0 else 0
     cost_per_hour_str = f"${cost_per_hour:.2f}/h"
 
-    return f"{EMOJI['context']} {percentage}% ({current:,}/{total:,}) [{bar}] {EMOJI['cost']} {cost_str} ({cost_per_hour_str})"
+    # Hide cost if zero or very low
+    cost_str = f"{EMOJI['cost']} {cost_str} ({cost_per_hour_str})" if cost > 0.01 else ""
+
+    return f"{EMOJI['context']} {percentage}% ({current:,}/{total:,}) [{bar}] {cost_str}"
 
 def format_rate_limits_line(data):
     """Line 3: ⏳ 5h: {percentage}% [{bar}] 7d: {percentage}% [{bar}]"""
