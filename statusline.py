@@ -79,40 +79,39 @@ def get_speed_cache():
             content = cache_path.read_text().strip()
             if content:
                 data = json.loads(content)
-                return data.get("last_output", 0), data.get("last_time", 0), data.get("speed_history", [])
+                return data.get("last_output", 0), data.get("last_api_duration", 0), data.get("speed_history", [])
         except Exception:
             pass
     return 0, 0, []
 
-def save_speed_cache(last_output, speed_history):
+def save_speed_cache(last_output, last_api_duration, speed_history):
     """Save speed cache data"""
     cache_path = Path(SPEED_CACHE_FILE)
     try:
         cache_path.write_text(json.dumps({
             "last_output": last_output,
-            "last_time": time.time(),
+            "last_api_duration": last_api_duration,
             "speed_history": speed_history[-SPEED_HISTORY_SIZE:]
         }))
     except Exception:
         pass
 
-def calculate_speed(current_output):
-    """Calculate speed based on output token delta since last check, return 5-call average"""
-    last_output, last_time, speed_history = get_speed_cache()
-    current_time = time.time()
+def calculate_speed(current_output, current_api_duration):
+    """Calculate speed based on output token delta / api duration delta, return 5-call average"""
+    last_output, last_api_duration, speed_history = get_speed_cache()
 
-    if current_output > last_output and last_time > 0:
+    if current_output > last_output and current_api_duration > last_api_duration:
         delta_output = current_output - last_output
-        delta_time = current_time - last_time
-        if delta_time > 0:
-            speed = delta_output / delta_time
+        delta_api_duration = current_api_duration - last_api_duration  # in ms
+        if delta_api_duration >= 100:  # minimum 100ms to avoid division by very small numbers
+            speed = delta_output / (delta_api_duration / 1000)  # tokens per second
             speed_history = speed_history + [speed]
             speed_history = speed_history[-SPEED_HISTORY_SIZE:]
             avg_speed = sum(speed_history) / len(speed_history)
-            save_speed_cache(current_output, speed_history)
+            save_speed_cache(current_output, current_api_duration, speed_history)
             return avg_speed
-    elif last_time == 0:
-        save_speed_cache(current_output, [])
+    elif last_api_duration == 0:
+        save_speed_cache(current_output, current_api_duration, [])
 
     return None if not speed_history else sum(speed_history) / len(speed_history)
 
@@ -172,8 +171,11 @@ def format_context_line(data):
     current = input_tokens + output_tokens
     total = int(context.get("context_window_size", 1) or 1)
 
-    # Calculate speed based on output token delta (recent 5 average)
-    current_speed = calculate_speed(output_tokens)
+    # Get API duration for speed calculation
+    total_api_duration_ms = int(data.get("cost", {}).get("total_api_duration_ms", 0) or 0)
+
+    # Calculate speed based on output token delta / api duration delta (recent 5 average)
+    current_speed = calculate_speed(output_tokens, total_api_duration_ms)
     if current_speed is not None and current_speed > 0:
         speed_str = f"⚡ {current_speed:.0f}t/s"
     else:
