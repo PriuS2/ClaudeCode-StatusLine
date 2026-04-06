@@ -116,16 +116,32 @@ def format_workspace_line(data):
     return line
 
 def format_context_line(data):
-    """Line 2: 🧊 {percentage}% ({current}/{total}) [{bar}]"""
+    """Line 2: 🧊 {percentage}% ({current}/{total}) [{bar}] In:Xk Out:Xk ⚡Xt/s"""
     context = data.get("context_window", {})
     percentage = context.get("used_percentage") or 0
     current_usage = context.get("current_usage", {})
-    current = int(current_usage.get("input_tokens", 0) or 0) + int(current_usage.get("output_tokens", 0) or 0)
+    input_tokens = int(current_usage.get("input_tokens", 0) or 0)
+    output_tokens = int(current_usage.get("output_tokens", 0) or 0)
+    current = input_tokens + output_tokens
     total = int(context.get("context_window_size", 1) or 1)
+
+    # Calculate tokens per second (output tokens per second)
+    duration_ms = data.get("cost", {}).get("total_duration_ms") or 0
+    if duration_ms > 0 and output_tokens > 0:
+        tokens_per_sec = output_tokens / (duration_ms / 1000)
+        speed_str = f"⚡{tokens_per_sec:.0f}t/s"
+    else:
+        speed_str = "⚡--t/s"
+
+    # Format tokens with k suffix for thousands
+    def format_k(n):
+        if n >= 1000:
+            return f"{n // 1000}k"
+        return str(n)
 
     bar = build_progress_bar(percentage)
 
-    return f"{EMOJI['context']} {percentage}% ({current:,}/{total:,}) [{bar}]"
+    return f"{EMOJI['context']} {percentage}% ({current:,}/{total:,}) [{bar}] In:{format_k(input_tokens)} Out:{format_k(output_tokens)} {speed_str}"
 
 def format_rate_limits_line(data):
     """Line 3: ⏳ 5h: {percentage}% [{bar}] 7d: {percentage}% [{bar}]"""
