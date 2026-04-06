@@ -54,13 +54,30 @@ import json
 import sys
 import os
 import platform
+import re
 
 settings_path = os.path.expanduser('${SETTINGS_FILE}')
 # Fix for Windows Git Bash path issue
 if platform.system() == 'Windows' and settings_path.startswith('/c/'):
     settings_path = settings_path[1].upper() + ':' + settings_path[2:]
+
+# Read file and remove comments for parsing
 with open(settings_path, 'r') as f:
-    settings = json.load(f)
+    content = f.read()
+
+# Remove // comments
+content = re.sub(r'//.*$', '', content, flags=re.MULTILINE)
+# Remove /* */ block comments
+content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+
+# Parse JSON (may have trailing commas)
+try:
+    settings = json.loads(content)
+except json.JSONDecodeError:
+    # Try removing trailing commas
+    content = re.sub(r',(\s*[}\]])', r'\1', content)
+    settings = json.loads(content)
+
 settings['statusLine'] = {'type': 'command', 'command': '${PYTHON_CMD} ${INSTALL_DIR}/statusline.py'}
 with open(settings_path, 'w') as f:
     json.dump(settings, f, indent=2)
