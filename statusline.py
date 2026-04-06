@@ -100,6 +100,11 @@ def calculate_speed(current_output, current_api_duration):
     """Calculate speed based on output token delta / api duration delta, return current speed"""
     last_output, last_api_duration, last_speed = get_speed_cache()
 
+    # New session detected (api_duration reset) - clear cache
+    if current_api_duration < last_api_duration:
+        save_speed_cache(0, 0, 0)
+        last_output, last_api_duration, last_speed = 0, 0, 0
+
     if current_output > last_output and current_api_duration > last_api_duration:
         delta_output = current_output - last_output
         delta_api_duration = current_api_duration - last_api_duration  # in ms
