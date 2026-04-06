@@ -53,7 +53,12 @@ if [ -f "${SETTINGS_FILE}" ]; then
 import json
 import sys
 import os
+import platform
+
 settings_path = os.path.expanduser('${SETTINGS_FILE}')
+# Fix for Windows Git Bash path issue
+if platform.system() == 'Windows' and settings_path.startswith('/c/'):
+    settings_path = settings_path[1].upper() + ':' + settings_path[2:]
 with open(settings_path, 'r') as f:
     settings = json.load(f)
 settings['statusLine'] = {'type': 'command', 'command': '${PYTHON_CMD} ${INSTALL_DIR}/statusline.py'}
@@ -68,8 +73,13 @@ else
     python3 -c "
 import json
 import os
+import platform
+
 settings = {'statusLine': {'type': 'command', 'command': '${PYTHON_CMD} ${INSTALL_DIR}/statusline.py'}}
 settings_path = os.path.expanduser('${SETTINGS_FILE}')
+# Fix for Windows Git Bash path issue
+if platform.system() == 'Windows' and settings_path.startswith('/c/'):
+    settings_path = settings_path[1].upper() + ':' + settings_path[2:]
 os.makedirs(os.path.dirname(settings_path), exist_ok=True)
 with open(settings_path, 'w') as f:
     json.dump(settings, f, indent=2)
