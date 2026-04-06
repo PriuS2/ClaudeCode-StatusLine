@@ -54,14 +54,6 @@ curl -fsSL https://raw.githubusercontent.com/PriuS2/ClaudeCode-StatusLine/main/u
 echo '{"model":{"display_name":"MiniMax-M2.7"},"context_window":{"used_percentage":35,"context_window_size":200000,"current_usage":{"input_tokens":45000,"output_tokens":3000}},"cost":{"total_cost_usd":0.00,"total_duration_ms":3600000,"total_api_duration_ms":700000},"workspace":{"current_dir":"/test"}}' | python3 statusline.py
 ```
 
-## 응답 속도 참고
-
-| 모델 | 일반적인 속도 범위 |
-|------|------------------|
-| Claude Sonnet 4 | 40-80 t/s |
-| Claude Opus 4 | 30-60 t/s |
-| MiniMax-M2.7 | 100-300 t/s |
-
 ## 참고사항
 
 - `rate_limits` 필드는 Claude.ai 구독자(Pro/Max)만 사용 가능
